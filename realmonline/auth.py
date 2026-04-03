@@ -6,6 +6,7 @@ Tokens are cached in the macOS Keychain via the `keyring` library.
 """
 
 import json
+import os
 import time
 import webbrowser
 
@@ -13,10 +14,17 @@ import keyring
 import requests
 
 # Azure AD application client ID.
-# Users can register their own at https://portal.azure.com -> App registrations
-# with "Mobile and desktop applications" redirect and XboxLive.signin scope.
-# This default is a well-known public client ID used by community launchers.
-CLIENT_ID = "00000000402b5328"
+#
+# You MUST register your own Azure AD app to use this tool:
+#   1. Go to https://portal.azure.com -> "App registrations" -> "New registration"
+#   2. Set "Supported account types" to "Personal Microsoft accounts only"
+#   3. Under "Authentication", add a "Mobile and desktop applications" platform
+#      with redirect URI: https://login.microsoftonline.com/common/oauth2/nativeclient
+#   4. Under "API permissions", ensure XboxLive.signin is granted
+#   5. Copy the "Application (client) ID" and set it below or via environment variable
+#
+# Set via: REALMONLINE_CLIENT_ID environment variable, or edit this default.
+CLIENT_ID = os.environ.get("REALMONLINE_CLIENT_ID", "")
 
 MICROSOFT_DEVICE_CODE_URL = (
     "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode"
@@ -64,12 +72,23 @@ def clear_tokens() -> None:
 # ── Step 1: Microsoft OAuth2 Device Code Flow ──────────────────────────
 
 
+def _require_client_id() -> str:
+    if not CLIENT_ID:
+        raise AuthError(
+            "No Azure AD client ID configured. "
+            "Set the REALMONLINE_CLIENT_ID environment variable. "
+            "See README.md for setup instructions."
+        )
+    return CLIENT_ID
+
+
 def request_device_code() -> dict:
     """Request a device code from Microsoft for user login."""
+    client_id = _require_client_id()
     resp = requests.post(
         MICROSOFT_DEVICE_CODE_URL,
         data={
-            "client_id": CLIENT_ID,
+            "client_id": client_id,
             "scope": "XboxLive.signin offline_access",
         },
         timeout=15,
@@ -91,7 +110,7 @@ def poll_for_ms_token(device_code_response: dict) -> dict:
             MICROSOFT_TOKEN_URL,
             data={
                 "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-                "client_id": CLIENT_ID,
+                "client_id": _require_client_id(),
                 "device_code": device_code,
             },
             timeout=15,
@@ -117,7 +136,7 @@ def refresh_ms_token(refresh_token: str) -> dict:
     resp = requests.post(
         MICROSOFT_TOKEN_URL,
         data={
-            "client_id": CLIENT_ID,
+            "client_id": _require_client_id(),
             "grant_type": "refresh_token",
             "refresh_token": refresh_token,
             "scope": "XboxLive.signin offline_access",

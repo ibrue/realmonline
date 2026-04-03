@@ -23,8 +23,8 @@ class RealmsClient:
         return {
             "Cookie": (
                 f"sid=token:{self.access_token}:{self.uuid};"
-                f"user={self.username};"
-                f"version={MC_VERSION}"
+                f" user={self.username};"
+                f" version={MC_VERSION}"
             ),
             "User-Agent": "Java/21.0.3",
             "Content-Type": "application/json",
