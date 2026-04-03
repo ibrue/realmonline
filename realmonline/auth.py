@@ -15,16 +15,12 @@ import requests
 
 # Azure AD application client ID.
 #
-# You MUST register your own Azure AD app to use this tool:
-#   1. Go to https://portal.azure.com -> "App registrations" -> "New registration"
-#   2. Set "Supported account types" to "Personal Microsoft accounts only"
-#   3. Under "Authentication", add a "Mobile and desktop applications" platform
-#      with redirect URI: https://login.microsoftonline.com/common/oauth2/nativeclient
-#   4. Under "API permissions", ensure XboxLive.signin is granted
-#   5. Copy the "Application (client) ID" and set it below or via environment variable
-#
-# Set via: REALMONLINE_CLIENT_ID environment variable, or edit this default.
-CLIENT_ID = os.environ.get("REALMONLINE_CLIENT_ID", "")
+# Default: Prism Launcher's public client ID (widely used by community tools).
+# Override via REALMONLINE_CLIENT_ID environment variable, or register your own
+# Azure AD app at https://portal.azure.com -> "App registrations" if needed.
+CLIENT_ID = os.environ.get(
+    "REALMONLINE_CLIENT_ID", "c36a9fb6-4f2a-41ff-90bd-ae7cc92031eb"
+)
 
 MICROSOFT_DEVICE_CODE_URL = (
     "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode"

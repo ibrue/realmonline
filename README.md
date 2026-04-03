@@ -14,36 +14,29 @@ A macOS menu bar app that shows how many players are online in your Minecraft Ja
 
 ## Setup
 
-### 1. Register an Azure AD Application
-
-This app uses Microsoft's OAuth2 device code flow, which requires your own Azure AD app:
-
-1. Go to [Azure Portal → App registrations](https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade) → **New registration**
-2. Name it anything (e.g. "RealmOnline")
-3. Set **Supported account types** to **Personal Microsoft accounts only**
-4. Under **Authentication** → **Add a platform** → **Mobile and desktop applications**
-5. Add redirect URI: `https://login.microsoftonline.com/common/oauth2/nativeclient`
-6. Under **API permissions**, ensure `XboxLive.signin` is granted
-7. Copy the **Application (client) ID** (a UUID like `a1b2c3d4-...`)
-
-### 2. Install
-
 ```bash
 # Clone the repo
 git clone https://github.com/ibrue/realmonline.git
 cd realmonline
 
+# Create a virtual environment (required on modern macOS)
+python3 -m venv .venv
+source .venv/bin/activate
+
 # Install
 pip install -e .
 
-# Set your Azure AD client ID
-export REALMONLINE_CLIENT_ID="your-client-id-here"
+# Test auth from terminal first
+python3 -m realmonline --test-auth
 
-# Run
-realmonline
+# Run the menu bar app
+python3 -m realmonline
 ```
 
-To make the env var permanent, add the `export` line to your `~/.zshrc` or `~/.bash_profile`.
+A default Azure AD client ID is included. To use your own, set:
+```bash
+export REALMONLINE_CLIENT_ID="your-client-id-here"
+```
 
 ### Build Standalone .app
 
@@ -93,4 +86,4 @@ Click the menu bar icon to see:
 - macOS
 - Python 3.11+
 - A Minecraft Java Edition account with Realms access
-- An Azure AD application (see [Setup](#setup) above)
+- A Microsoft account linked to Minecraft
