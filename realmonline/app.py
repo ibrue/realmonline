@@ -223,6 +223,109 @@ class RealmOnlineApp(rumps.App):
             self._build_menu()
 
 
+class DemoRealmOnlineApp(RealmOnlineApp):
+    """Demo mode with fake data — no auth or network required."""
+
+    DEMO_REALMS = [
+        {
+            "name": "Survival World",
+            "id": 1,
+            "owner": "Steve",
+            "players_online": ["Alex", "Notch", "Jeb"],
+            "player_count": 3,
+            "max_players": 10,
+            "state": "OPEN",
+        },
+        {
+            "name": "Creative Server",
+            "id": 2,
+            "owner": "Steve",
+            "players_online": [],
+            "player_count": 0,
+            "max_players": 10,
+            "state": "OPEN",
+        },
+    ]
+
+    def __init__(self):
+        super().__init__()
+        self._token_info = {
+            "access_token": "demo",
+            "username": "DemoUser",
+            "uuid": "demo-uuid",
+        }
+        self._realms_data = self.DEMO_REALMS
+        self._update_title()
+        self._build_menu()
+
+    def _refresh_realms(self):
+        # No-op in demo mode — keep fake data
+        pass
+
+
+def _test_auth():
+    """Test auth flow from the command line (no menu bar)."""
+    import sys
+
+    print("Testing Minecraft Realms authentication...\n")
+
+    # Step 1: Check for cached token
+    print("[1/2] Checking for cached token...")
+    token = auth.get_token()
+    if token:
+        print(f"  Found valid cached token for: {token['username']}")
+    else:
+        print("  No cached token. Starting device code login...\n")
+        def on_code(user_code, verification_uri):
+            print(f"  Go to: {verification_uri}")
+            print(f"  Enter code: {user_code}\n")
+            print("  Waiting for you to sign in...")
+        try:
+            token = auth.login_interactive(on_code=on_code)
+        except auth.AuthError as e:
+            print(f"\n  Auth failed: {e}", file=sys.stderr)
+            sys.exit(1)
+        print(f"\n  Signed in as: {token['username']}")
+
+    # Step 2: Query Realms
+    print("\n[2/2] Querying Realms API...")
+    from realmonline.realms import RealmsClient
+    client = RealmsClient(
+        access_token=token["access_token"],
+        username=token["username"],
+        uuid=token["uuid"],
+    )
+    try:
+        realms = client.get_online_players()
+    except Exception as e:
+        print(f"  Realms API error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if not realms:
+        print("  No realms found for this account.")
+    else:
+        for realm in realms:
+            state = realm["state"]
+            count = realm["player_count"]
+            names = ", ".join(realm["players_online"]) or "nobody"
+            print(f"  {realm['name']} [{state}]: {count} online ({names})")
+
+    print("\nAll good! The menu bar app should work.")
+
+
 def main():
-    app = RealmOnlineApp()
-    app.run()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Minecraft Realms player count in your menu bar")
+    parser.add_argument("--demo", action="store_true", help="Run with fake data (no auth needed)")
+    parser.add_argument("--test-auth", action="store_true", help="Test auth + Realms API from the terminal")
+    args = parser.parse_args()
+
+    if args.test_auth:
+        _test_auth()
+    elif args.demo:
+        app = DemoRealmOnlineApp()
+        app.run()
+    else:
+        app = RealmOnlineApp()
+        app.run()

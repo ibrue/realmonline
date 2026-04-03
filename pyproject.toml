@@ -13,6 +13,9 @@ dependencies = [
     "keyring>=25.0.0",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
 [project.scripts]
 realmonline = "realmonline.app:main"
 
