@@ -41,7 +41,7 @@ class RealmsClient:
             raise RealmsError("Authentication expired")
         resp.raise_for_status()
         data = resp.json()
-        return data.get("servers", [])
+        return data.get("servers") or []
 
     def get_world_details(self, world_id: int) -> dict:
         """Get detailed info for a specific realm, including online players."""
@@ -73,9 +73,9 @@ class RealmsClient:
         data = resp.json()
 
         result: dict[int, list[str]] = {}
-        for server in data.get("lists", []):
+        for server in data.get("lists") or []:
             realm_id = server.get("serverId")
-            players = server.get("playerList", [])
+            players = server.get("playerList") or []
             if realm_id is not None:
                 result[realm_id] = [p.get("playerId", "") for p in players]
         return result
@@ -102,7 +102,7 @@ class RealmsClient:
         # Build a UUID -> name lookup from the player lists in /worlds
         uuid_to_name: dict[str, str] = {}
         for world in worlds:
-            for p in world.get("players", []):
+            for p in world.get("players") or []:
                 uid = p.get("uuid", "")
                 name = p.get("name")
                 if uid and name:

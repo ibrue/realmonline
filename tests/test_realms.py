@@ -235,3 +235,35 @@ def test_get_online_players_closed_realm(mock_get, client):
     assert results[0]["state"] == "CLOSED"
     assert results[0]["player_count"] == 0
     assert results[0]["players_online"] == []
+
+
+@patch("realmonline.realms.requests.get")
+def test_get_online_players_null_players_field(mock_get, client):
+    """API may return players: null instead of an empty list."""
+
+    def side_effect(url, **kwargs):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+
+        if "/activities/liveplayerlist" in url:
+            mock_resp.json.return_value = {"lists": None}
+        else:
+            mock_resp.json.return_value = {
+                "servers": [
+                    {
+                        "id": 1,
+                        "name": "Null Realm",
+                        "owner": "Owner",
+                        "state": "OPEN",
+                        "maxPlayers": 10,
+                        "players": None,
+                    }
+                ]
+            }
+        return mock_resp
+
+    mock_get.side_effect = side_effect
+
+    results = client.get_online_players()
+    assert results[0]["player_count"] == 0
+    assert results[0]["players_online"] == []
