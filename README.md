@@ -1,89 +1,53 @@
-# RealmOnline ⛏
+# RealmOnline
 
-A macOS menu bar app that shows how many players are online in your Minecraft Java Realms.
+A native macOS menu bar app that shows how many players are online in your Minecraft Java Realms.
 
-![menu bar preview](https://img.shields.io/badge/menu%20bar-%E2%9B%8F%203-green)
+## Install
 
-## Features
+### Download (easiest)
 
-- **Live player count** in your menu bar (e.g. `⛏ 3`)
-- **Click to see details**: which realm, who's online
-- **Multiple realms** supported — pick which one to display
-- **Auto-refresh** every 60 seconds
-- **Secure auth** via Microsoft device code flow (tokens stored in macOS Keychain)
+1. Go to [Releases](https://github.com/ibrue/realmonline/releases)
+2. Download `RealmOnline.zip`
+3. Unzip and drag `RealmOnline.app` to your Applications folder
+4. Double-click to launch
 
-## Setup
+### Build from source
 
 ```bash
-# Clone the repo
 git clone https://github.com/ibrue/realmonline.git
 cd realmonline
-
-# Create a virtual environment (required on modern macOS)
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Install
-pip install -e .
-
-# Test auth from terminal first
-python3 -m realmonline --test-auth
-
-# Run the menu bar app
-python3 -m realmonline
+./scripts/bundle-app.sh
+open dist/RealmOnline.app
 ```
 
-A default Azure AD client ID is included. To use your own, set:
-```bash
-export REALMONLINE_CLIENT_ID="your-client-id-here"
-```
-
-### Build Standalone .app
-
-```bash
-pip install py2app
-python setup_app.py py2app
-
-# The app will be in dist/RealmOnline.app
-# Drag it to your Applications folder
-```
+Requires Xcode Command Line Tools (`xcode-select --install`).
 
 ## Usage
 
-1. **Launch** the app — you'll see `⛏ ?` in your menu bar
-2. **Click** the icon and select **Sign In with Microsoft**
-3. A browser window opens — sign in with your Microsoft/Minecraft account
-4. The login code is automatically copied to your clipboard
-5. Once signed in, the app shows the online player count: `⛏ 3`
+1. Launch the app — `⛏ ?` appears in your menu bar
+2. Click it and select **Sign in with Microsoft**
+3. A browser opens — sign in with your Minecraft account (code is auto-copied)
+4. Once signed in, the menu bar shows: `⛏ 3`
 
-### Menu Bar
+Click the icon to see all your realms, who's online, and switch which realm is displayed.
 
-| Display | Meaning |
-|---------|---------|
+| Menu bar | Meaning |
+|----------|---------|
 | `⛏ 3` | 3 players online |
 | `⛏ 0` | No players online |
 | `⛏ off` | Realm is closed |
 | `⛏ ?` | Not signed in |
-| `⛏ !` | Error (check notifications) |
 
-### Dropdown Menu
-
-Click the menu bar icon to see:
-- Your signed-in username
-- All your realms with player counts
-- Names of online players
-- Click a realm to pin it to the menu bar display
-
-## How It Works
-
-1. **Microsoft OAuth2** device code flow for authentication
-2. **Xbox Live** → **XSTS** → **Minecraft** token exchange
-3. Queries the **Minecraft Realms API** (`pc.realms.minecraft.net`)
-4. Tokens cached securely in **macOS Keychain** via `keyring`
+Auto-refreshes every 60 seconds. Tokens are stored securely in your macOS Keychain.
 
 ## Requirements
 
-- macOS
-- Python 3.11+
-- A Minecraft Java Edition account with Realms access
-- A Microsoft account linked to Minecraft
+- macOS 14 Sonoma or later
+- A Microsoft account linked to Minecraft Java Edition with Realms access
+
+## How It Works
+
+1. Microsoft OAuth2 device code flow for authentication
+2. Xbox Live → XSTS → Minecraft token exchange
+3. Queries the Minecraft Realms API for online players
+4. Built with SwiftUI and MenuBarExtra
