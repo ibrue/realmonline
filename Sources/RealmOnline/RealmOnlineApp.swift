@@ -5,8 +5,10 @@ struct RealmOnlineApp: App {
     @State private var viewModel = RealmsViewModel()
 
     var body: some Scene {
-        MenuBarExtra(viewModel.menuBarTitle, systemImage: "hammer.fill") {
+        MenuBarExtra {
             PopoverView(viewModel: viewModel)
+        } label: {
+            Label(viewModel.menuBarTitle, systemImage: "hammer.fill")
         }
         .menuBarExtraStyle(.window)
     }
