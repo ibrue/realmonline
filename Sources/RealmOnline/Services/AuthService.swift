@@ -173,7 +173,7 @@ actor AuthService {
     // MARK: - Full Auth Chain
 
     func fullAuth(_ msToken: MSTokenResponse) async throws -> MinecraftTokenInfo {
-        let (xblToken, userHash) = try await authenticateXboxLive(msToken.accessToken)
+        let (xblToken, _) = try await authenticateXboxLive(msToken.accessToken)
         let (xstsToken, xstsHash) = try await authenticateXSTS(xblToken)
         let mcAuth = try await authenticateMinecraft(xstsToken: xstsToken, userHash: xstsHash)
         let profile = try await getMinecraftProfile(mcAuth.accessToken)

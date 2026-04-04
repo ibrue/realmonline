@@ -27,7 +27,7 @@ struct RealmRowView: View {
                     // Player count
                     if realm.state == .open {
                         Text("\(realm.playerCount)")
-                            .font(.system(.body, weight: .semibold, design: .rounded))
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
                             .foregroundStyle(realm.playerCount > 0 ? .primary : .secondary)
                     } else {
                         Text("off")
