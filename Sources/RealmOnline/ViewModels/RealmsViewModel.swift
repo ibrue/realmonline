@@ -2,7 +2,7 @@ import Foundation
 import AppKit
 import Observation
 
-@Observable
+@MainActor @Observable
 final class RealmsViewModel {
     var authState: AuthState = .unknown
     var realms: [RealmInfo] = []
@@ -57,12 +57,10 @@ final class RealmsViewModel {
         Task {
             do {
                 let deviceCode = try await authService.requestDeviceCode()
-                await MainActor.run {
-                    authState = .awaitingCode(
-                        userCode: deviceCode.userCode,
-                        verificationURI: deviceCode.verificationUri
-                    )
-                }
+                authState = .awaitingCode(
+                    userCode: deviceCode.userCode,
+                    verificationURI: deviceCode.verificationUri
+                )
 
                 // Copy code to clipboard
                 NSPasteboard.general.clearContents()
@@ -73,22 +71,18 @@ final class RealmsViewModel {
                     NSWorkspace.shared.open(url)
                 }
 
-                await MainActor.run { authState = .signingIn }
+                authState = .signingIn
 
                 let msToken = try await authService.pollForMSToken(deviceCode)
                 let token = try await authService.fullAuth(msToken)
 
-                await MainActor.run {
-                    tokenInfo = token
-                    authState = .signedIn(username: token.username)
-                }
+                tokenInfo = token
+                authState = .signedIn(username: token.username)
 
                 await refresh()
                 startPolling()
             } catch {
-                await MainActor.run {
-                    authState = .error(error.localizedDescription)
-                }
+                authState = .error(error.localizedDescription)
             }
         }
     }
@@ -112,25 +106,21 @@ final class RealmsViewModel {
         defer { isRefreshing = false }
 
         do {
-            let newRealms = try await RealmsService.getOnlinePlayers(token: token)
-            await MainActor.run { realms = newRealms }
+            realms = try await RealmsService.getOnlinePlayers(token: token)
         } catch is RealmsError {
             // Token expired — try to refresh
             if let newToken = await authService.getValidToken() {
                 tokenInfo = newToken
                 do {
-                    let newRealms = try await RealmsService.getOnlinePlayers(token: newToken)
-                    await MainActor.run { realms = newRealms }
+                    realms = try await RealmsService.getOnlinePlayers(token: newToken)
                 } catch {
-                    await MainActor.run { authState = .error(error.localizedDescription) }
+                    authState = .error(error.localizedDescription)
                 }
             } else {
-                await MainActor.run {
-                    authState = .signedOut
-                }
+                authState = .signedOut
             }
         } catch {
-            await MainActor.run { authState = .error(error.localizedDescription) }
+            authState = .error(error.localizedDescription)
         }
     }
 
