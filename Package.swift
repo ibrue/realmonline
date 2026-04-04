@@ -10,8 +10,15 @@ let package = Package(
         .executableTarget(
             name: "RealmOnline",
             path: "Sources/RealmOnline",
+            exclude: ["Info.plist"],
             linkerSettings: [
                 .linkedFramework("Security"),
+                .unsafeFlags([
+                    "-Xlinker", "-sectcreate",
+                    "-Xlinker", "__TEXT",
+                    "-Xlinker", "__info_plist",
+                    "-Xlinker", "Sources/RealmOnline/Info.plist",
+                ]),
             ]
         )
     ]
