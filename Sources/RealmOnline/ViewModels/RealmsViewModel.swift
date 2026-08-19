@@ -97,11 +97,10 @@ final class RealmsViewModel {
                 await refresh()
                 startPolling()
             } catch is CancellationError {
-                authState = .signedOut
+                // Whoever cancelled us (cancelSignIn, signOut, or a newer
+                // sign-in attempt) owns the state — don't stomp it here.
             } catch {
-                if Task.isCancelled {
-                    authState = .signedOut
-                } else {
+                if !Task.isCancelled {
                     authState = .error(error.localizedDescription)
                 }
             }
