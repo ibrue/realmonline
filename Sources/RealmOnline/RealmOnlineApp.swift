@@ -20,7 +20,7 @@ struct RealmOnlineApp: App {
         MenuBarExtra {
             PopoverView(viewModel: viewModel)
         } label: {
-            Label(viewModel.menuBarTitle, systemImage: "hammer.fill")
+            Text(viewModel.menuBarTitle)
         }
         .menuBarExtraStyle(.window)
     }

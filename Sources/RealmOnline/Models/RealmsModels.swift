@@ -30,6 +30,32 @@ struct LivePlayerListResponse: Codable {
 struct LivePlayerServer: Codable {
     let serverId: Int
     let playerList: [LivePlayer]?
+
+    enum CodingKeys: String, CodingKey {
+        case serverId, playerList
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        serverId = try container.decode(Int.self, forKey: .serverId)
+
+        // The API has returned playerList both as a JSON array and as a
+        // JSON-encoded string containing that array; accept either.
+        if let list = try? container.decodeIfPresent([LivePlayer].self, forKey: .playerList) {
+            playerList = list
+        } else if let raw = try? container.decodeIfPresent(String.self, forKey: .playerList),
+                  let data = raw.data(using: .utf8) {
+            playerList = try? JSONDecoder().decode([LivePlayer].self, from: data)
+        } else {
+            playerList = nil
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(serverId, forKey: .serverId)
+        try container.encodeIfPresent(playerList, forKey: .playerList)
+    }
 }
 
 struct LivePlayer: Codable {

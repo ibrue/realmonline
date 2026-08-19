@@ -27,7 +27,7 @@ struct PopoverView: View {
             }
         }
         .frame(width: 280)
-        .onAppear { viewModel.onAppear() }
+        .onAppear { viewModel.onPopoverAppear() }
     }
 
     // MARK: - Awaiting Code
@@ -49,6 +49,13 @@ struct PopoverView: View {
             ProgressView()
                 .controlSize(.small)
                 .padding(.top, 4)
+
+            Button("Cancel") {
+                viewModel.cancelSignIn()
+            }
+            .buttonStyle(.borderless)
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
         .padding(20)
     }
