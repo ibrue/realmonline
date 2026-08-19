@@ -22,6 +22,10 @@ actor AuthService {
     private let clientID = "c36a9fb6-4f2a-41ff-90bd-ae7cc92031eb"
     private let session = URLSession.shared
 
+    private static func statusCode(_ response: URLResponse) -> Int {
+        (response as? HTTPURLResponse)?.statusCode ?? 0
+    }
+
     // MARK: - Step 1a: Request Device Code
 
     func requestDeviceCode() async throws -> DeviceCodeResponse {
@@ -31,7 +35,11 @@ actor AuthService {
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.httpBody = "client_id=\(clientID)&scope=XboxLive.signin%20offline_access".data(using: .utf8)
 
-        let (data, _) = try await session.data(for: request)
+        let (data, response) = try await session.data(for: request)
+        guard Self.statusCode(response) == 200 else {
+            let err = try? JSONDecoder().decode(MSTokenErrorResponse.self, from: data)
+            throw AuthError.authFailed(err?.errorDescription ?? "Could not start Microsoft sign-in (HTTP \(Self.statusCode(response)))")
+        }
         return try JSONDecoder().decode(DeviceCodeResponse.self, from: data)
     }
 
@@ -64,6 +72,7 @@ actor AuthService {
                 switch error.error {
                 case "authorization_pending": continue
                 case "slow_down": interval += 5; continue
+                case "expired_token": throw AuthError.deviceCodeExpired
                 default:
                     throw AuthError.authFailed(error.errorDescription ?? error.error ?? "Unknown error")
                 }
@@ -110,7 +119,10 @@ actor AuthService {
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, _) = try await session.data(for: request)
+        let (data, response) = try await session.data(for: request)
+        guard Self.statusCode(response) == 200 else {
+            throw AuthError.authFailed("Xbox Live sign-in failed (HTTP \(Self.statusCode(response)))")
+        }
         let resp = try JSONDecoder().decode(XboxAuthResponse.self, from: data)
         guard let uhs = resp.displayClaims.xui.first?.uhs else { throw AuthError.invalidResponse }
         return (resp.token, uhs)
@@ -135,10 +147,30 @@ actor AuthService {
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, _) = try await session.data(for: request)
+        let (data, response) = try await session.data(for: request)
+        guard Self.statusCode(response) == 200 else {
+            throw AuthError.authFailed(Self.xstsErrorMessage(data: data, status: Self.statusCode(response)))
+        }
         let resp = try JSONDecoder().decode(XboxAuthResponse.self, from: data)
         guard let uhs = resp.displayClaims.xui.first?.uhs else { throw AuthError.invalidResponse }
         return (resp.token, uhs)
+    }
+
+    private static func xstsErrorMessage(data: Data, status: Int) -> String {
+        struct XSTSError: Codable { let XErr: UInt64? }
+        let xerr = (try? JSONDecoder().decode(XSTSError.self, from: data))?.XErr ?? 0
+        switch xerr {
+        case 2_148_916_233:
+            return "This Microsoft account has no Xbox profile. Sign in at xbox.com once to create one, then try again."
+        case 2_148_916_235:
+            return "Xbox Live is not available in your account's region."
+        case 2_148_916_236, 2_148_916_237:
+            return "This account needs adult verification on xbox.com before it can sign in."
+        case 2_148_916_238:
+            return "This is a child account. It must be added to a family by an adult before it can sign in."
+        default:
+            return "Xbox authorization failed (HTTP \(status))"
+        }
     }
 
     // MARK: - Step 4: Minecraft Auth
@@ -155,7 +187,14 @@ actor AuthService {
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, _) = try await session.data(for: request)
+        let (data, response) = try await session.data(for: request)
+        let status = Self.statusCode(response)
+        guard status == 200 else {
+            if status == 403 {
+                throw AuthError.authFailed("Minecraft rejected the sign-in (HTTP 403). The app's client ID may not be approved for the Minecraft API.")
+            }
+            throw AuthError.authFailed("Minecraft sign-in failed (HTTP \(status))")
+        }
         return try JSONDecoder().decode(MinecraftAuthResponse.self, from: data)
     }
 
@@ -166,7 +205,14 @@ actor AuthService {
         var request = URLRequest(url: url)
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
 
-        let (data, _) = try await session.data(for: request)
+        let (data, response) = try await session.data(for: request)
+        let status = Self.statusCode(response)
+        guard status == 200 else {
+            if status == 404 {
+                throw AuthError.authFailed("This Microsoft account doesn't own Minecraft Java Edition.")
+            }
+            throw AuthError.authFailed("Could not load Minecraft profile (HTTP \(status))")
+        }
         return try JSONDecoder().decode(MinecraftProfile.self, from: data)
     }
 

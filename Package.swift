@@ -20,6 +20,11 @@ let package = Package(
                     "-Xlinker", "Sources/RealmOnline/Info.plist",
                 ]),
             ]
-        )
+        ),
+        .testTarget(
+            name: "RealmOnlineTests",
+            dependencies: ["RealmOnline"],
+            path: "Tests/RealmOnlineTests"
+        ),
     ]
 )

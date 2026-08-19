@@ -10,8 +10,15 @@ final class RealmsViewModel {
     var isRefreshing = false
 
     private var tokenInfo: MinecraftTokenInfo?
-    private var pollTimer: Timer?
+    private var pollTask: Task<Void, Never>?
+    private var signInTask: Task<Void, Never>?
     private let authService = AuthService.shared
+
+    init() {
+        // Kick off immediately at launch so the menu bar title is correct
+        // before the popover is ever opened.
+        Task { await checkCachedToken() }
+    }
 
     var menuBarTitle: String {
         guard case .signedIn = authState else { return "\u{26CF} ?" }
@@ -36,8 +43,11 @@ final class RealmsViewModel {
 
     // MARK: - Lifecycle
 
-    func onAppear() {
-        Task { await checkCachedToken() }
+    /// Called each time the popover opens — refresh right away if signed in.
+    func onPopoverAppear() {
+        if case .signedIn = authState {
+            refreshInBackground()
+        }
     }
 
     private func checkCachedToken() async {
@@ -54,26 +64,31 @@ final class RealmsViewModel {
     // MARK: - Sign In
 
     func signIn() {
-        Task {
+        signInTask?.cancel()
+        signInTask = Task {
             do {
                 let deviceCode = try await authService.requestDeviceCode()
-                authState = .awaitingCode(
-                    userCode: deviceCode.userCode,
-                    verificationURI: deviceCode.verificationUri
-                )
 
                 // Copy code to clipboard
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(deviceCode.userCode, forType: .string)
+
+                // Show the code and keep showing it while we wait for the
+                // user to enter it in the browser.
+                authState = .awaitingCode(
+                    userCode: deviceCode.userCode,
+                    verificationURI: deviceCode.verificationUri
+                )
 
                 // Open browser
                 if let url = URL(string: deviceCode.verificationUri) {
                     NSWorkspace.shared.open(url)
                 }
 
-                authState = .signingIn
-
                 let msToken = try await authService.pollForMSToken(deviceCode)
+
+                // The user has entered the code — now run the token chain.
+                authState = .signingIn
                 let token = try await authService.fullAuth(msToken)
 
                 tokenInfo = token
@@ -81,16 +96,29 @@ final class RealmsViewModel {
 
                 await refresh()
                 startPolling()
+            } catch is CancellationError {
+                // Whoever cancelled us (cancelSignIn, signOut, or a newer
+                // sign-in attempt) owns the state — don't stomp it here.
             } catch {
-                authState = .error(error.localizedDescription)
+                if !Task.isCancelled {
+                    authState = .error(error.localizedDescription)
+                }
             }
         }
+    }
+
+    func cancelSignIn() {
+        signInTask?.cancel()
+        signInTask = nil
+        authState = .signedOut
     }
 
     // MARK: - Sign Out
 
     func signOut() {
         stopPolling()
+        signInTask?.cancel()
+        signInTask = nil
         KeychainService.clearAll()
         tokenInfo = nil
         realms = []
@@ -107,7 +135,11 @@ final class RealmsViewModel {
 
         do {
             realms = try await RealmsService.getOnlinePlayers(token: token)
-        } catch is RealmsError {
+            // Recover from a transient error state once a refresh succeeds.
+            if case .error = authState {
+                authState = .signedIn(username: token.username)
+            }
+        } catch RealmsError.authExpired {
             // Token expired — try to refresh
             if let newToken = await authService.getValidToken() {
                 tokenInfo = newToken
@@ -132,13 +164,17 @@ final class RealmsViewModel {
 
     private func startPolling() {
         stopPolling()
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
-            self?.refreshInBackground()
+        pollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(60))
+                guard !Task.isCancelled, let self else { return }
+                await self.refresh()
+            }
         }
     }
 
     private func stopPolling() {
-        pollTimer?.invalidate()
-        pollTimer = nil
+        pollTask?.cancel()
+        pollTask = nil
     }
 }

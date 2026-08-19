@@ -13,8 +13,8 @@ struct PopoverView: View {
             case .signedOut:
                 SignInView(onSignIn: viewModel.signIn)
 
-            case .awaitingCode(let code, _):
-                awaitingCodeView(code: code)
+            case .awaitingCode(let code, let uri):
+                awaitingCodeView(code: code, verificationURI: uri)
 
             case .signingIn:
                 signingInView
@@ -27,14 +27,14 @@ struct PopoverView: View {
             }
         }
         .frame(width: 280)
-        .onAppear { viewModel.onAppear() }
+        .onAppear { viewModel.onPopoverAppear() }
     }
 
     // MARK: - Awaiting Code
 
-    private func awaitingCodeView(code: String) -> some View {
+    private func awaitingCodeView(code: String, verificationURI: String) -> some View {
         VStack(spacing: 12) {
-            Text("Sign in at microsoft.com/link")
+            Text("Sign in at \(displayHost(of: verificationURI))")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -49,8 +49,21 @@ struct PopoverView: View {
             ProgressView()
                 .controlSize(.small)
                 .padding(.top, 4)
+
+            Button("Cancel") {
+                viewModel.cancelSignIn()
+            }
+            .buttonStyle(.borderless)
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
         .padding(20)
+    }
+
+    private func displayHost(of uri: String) -> String {
+        guard let url = URL(string: uri), let host = url.host else { return uri }
+        let path = url.path == "/" ? "" : url.path
+        return host.replacingOccurrences(of: "www.", with: "") + path
     }
 
     // MARK: - Signing In
